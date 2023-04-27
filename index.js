@@ -15,7 +15,7 @@ app.use(session({
 }));
 
 // Retrieve OpenID Connect configuration from the issuer's discovery document
-Issuer.discover(... )
+Issuer.discover('...')
     .then((issuer) => {
         // Initialize the client with the client ID and secret
         const client = new issuer.Client({
