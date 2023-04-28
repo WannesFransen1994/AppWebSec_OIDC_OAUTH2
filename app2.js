@@ -1,17 +1,13 @@
 const express = require('express');
 const session = require('express-session');
 const { Issuer } = require('openid-client');
-const { jwtVerify } = require('jose');
-
-const jwt = require('jsonwebtoken');
-const jwksClient = require('jwks-rsa');
 
 const app = express();
 
-const port = 4000
+const port = 4001
 const secrets = {
-    client_id: 'app1',
-    client_secret: 'feRTNnqFpCUjuGMJlbBtMBAiEnvt0jaU',
+    client_id: 'app2',
+    client_secret: '4Vbl9LgdIG6iJdmw8xCJXrYUxzjDcZ1V',
     redirect_path: "/login/redirect",
     keycloak_host: "http://localhost:8080",
     realm_name: "my-demo-realm"
@@ -78,66 +74,33 @@ Issuer.discover(keycloak_realm_uri)
             }
         });
 
-        app.get('/protected/resource', async (req, res, next) => {
+        app.get('/request-extra-scope', async (req, res, next) => {
             try {
-                // const tokenSet = req.session.tokenSet;
-                const tokenSet = JSON.parse(req.headers.authorization);
-
-                if (!tokenSet) {
-                    res.sendStatus(401);
+                if (!req.session.tokenSet) {
+                    res.redirect('/login');
                     return;
                 }
 
-                // Verify that the access token includes the 'service-a-scope' scope
-                const scopes = tokenSet.scope.split(' ');
-                if (!scopes.includes('app1-client-scope')) {
-                    res.sendStatus(403);
-                    return;
+                // Check if the user has the required scope for Service A
+                console.log(req.session.tokenSet)
+                const hasServiceAScope = req.session.tokenSet.scope.split(' ').includes('app1-client-scope');
+
+                if (hasServiceAScope) {
+                    // User has the required scope for Service A, display the profile
+                    const user = await client.userinfo(req.session.tokenSet.access_token);
+                    console.log("has already service access")
+                    console.log(JSON.stringify(req.session.tokenSet))
+                    res.send(user);
+                } else {
+                    // User does not have the required scope for Service A, request the new scope
+                    const params = {
+                        redirect_uri: redirect_uri,
+                        scope: ['openid profile app1-client-scope'], // Add the new scope
+                        prompt: 'consent' // Force the user to grant permission for the new scope
+                    };
+                    const authorizationUrl = client.authorizationUrl(params);
+                    res.redirect(authorizationUrl);
                 }
-
-
-
-                const client = jwksClient({ jwksUri: issuer.jwks_uri });
-
-                function getKey(header, callback) {
-                    client.getSigningKey(header.kid, function (err, key) {
-                        console.log(key)
-                        console.log(key.getPublicKey())
-                        const signingKey = key.getPublicKey() || key.rsaPublicKey;
-                        callback(null, signingKey);
-                    });
-                }
-
-                const token = tokenSet.access_token;
-                jwt.verify(token, getKey, { algorithms: ['RS256'] }, function (err, decoded) {
-                    if (err) {
-                        console.error(err);
-                        return;
-                    }
-
-                    // If expired, returns error. Assuming that no error = good
-                    res.send('Protected Resource');
-                });
-
-                // // Verify the token signature using the JWKS from the issuer
-                // // const jwks = await issuer.keystore();
-                // console.log(issuer.jwks_uri)
-                // console.log(tokenSet.access_token)
-                // const jwksUri = issuer.jwks_uri
-                // // Fetch the JWKS from the issuer
-                // const response = await fetch(jwksUri);
-                // const jwks = await response.json();
-                // console.log(jwks)
-
-                // // Verify the token signature using the JWKS
-                // const verified = jwtVerify(tokenSet.access_token, jwks);
-
-                // // If the token is valid, return the protected resource
-                // if (verified) {
-                //     res.send('Protected Resource');
-                // } else {
-                //     res.sendStatus(401);
-                // }
             } catch (err) {
                 next(err);
             }
