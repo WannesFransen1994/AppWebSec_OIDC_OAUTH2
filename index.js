@@ -98,7 +98,7 @@ Issuer.discover(keycloak_realm_uri)
 
 
                 const client = jwksClient({ jwksUri: issuer.jwks_uri });
-
+                console.log(issuer.jwks_uri)
                 function getKey(header, callback) {
                     client.getSigningKey(header.kid, function (err, key) {
                         console.log(key)
